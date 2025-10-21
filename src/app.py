@@ -1,42 +1,46 @@
 import streamlit as st
 from pytubefix import YouTube
+from main import YouTubeDownloader
 
 st.title("🎥 YouTube Downloader")
 st.write("Paste a YouTube URL to view available video qualities.")
 
 url = st.text_input(
     "Enter YouTube URL:",
-    value="https://youtu.be/CMEWVn1uZpQ?si=T0u2tGhuwVEuWbz_"
+    value="https://youtu.be/7ZqWmAvLZEg?si=7j0bdWHk92HClDol"
 )
 
+# اگر کاربر URL وارد کرده
 if url:
     try:
         yt = YouTube(url)
 
+        # فقط وقتی کاربر روی دکمه کلیک کرد
         if st.button("Show Available Qualities"):
-            streams = yt.streams.filter(progressive=True, file_extension="mp4")
+            streams = yt.streams.filter(file_extension="mp4")
+
             if not streams:
                 st.warning("No downloadable streams found.")
             else:
-                # استخراج اطلاعات خوانا برای کاربر
-                options = [
-                    f"{stream.resolution} ({round(stream.filesize / 1024 / 1024, 2)} MB)"
-                    for stream in streams
-                ]
+                st.session_state["streams"] = streams  # ذخیره برای بعداً
 
-                selected_quality = st.selectbox("Select video quality:", options)
+        # اگر استریم‌ها در حافظه هستند، نمایش انتخاب کیفیت
+        if "streams" in st.session_state:
+            streams = st.session_state["streams"]
+            options = [
+                f"{stream.resolution} ({round(stream.filesize / 1024 / 1024, 2)} MB)"
+                for stream in streams
+            ]
+            selected_quality = st.selectbox("Select video quality:", options)
 
-                if st.button("Download"):
-                    # پیدا کردن stream مربوط به گزینه انتخاب‌شده
-                    index = options.index(selected_quality)
-                    selected_stream = streams[index]
+            if st.button("Download"):
+                selected_res = selected_quality.split()[0]
+                downloader = YouTubeDownloader(url, selected_res)
 
-                    st.info("Downloading... Please wait ⏳")
+                with st.spinner("Downloading... Please wait ⏳"):
+                    downloader.download()
 
-                    # دانلود فایل
-                    file_path = selected_stream.download()
-
-                    st.success(f"✅ Download complete! Saved to: {file_path}")
+                st.success("✅ Download complete!")
 
     except Exception as e:
         st.error(f"❌ Error: {e}")
