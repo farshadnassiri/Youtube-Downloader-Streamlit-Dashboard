@@ -1,46 +1,81 @@
-import streamlit as st
 from pytubefix import YouTube
-from main import YouTubeDownloader
+import streamlit as st
 
 st.title("🎥 YouTube Downloader")
-st.write("Paste a YouTube URL to view available video qualities.")
+st.write("Paste a YouTube URL to view and download available video qualities.")
 
-url = st.text_input(
-    "Enter YouTube URL:",
-    value="https://youtu.be/7ZqWmAvLZEg?si=7j0bdWHk92HClDol" 
-)
+# --- ورودی لینک ---
+url = st.text_input("Enter YouTube URL:")
 
-# اگر کاربر URL وارد کرده
-if url:
+# --- مدیریت وضعیت ---
+if "yt" not in st.session_state:
+    st.session_state.yt = None
+if "streams" not in st.session_state:
+    st.session_state.streams = None
+if "last_url" not in st.session_state:
+    st.session_state.last_url = None
+if "selected_itag" not in st.session_state:
+    st.session_state.selected_itag = None
+
+# --- اگر لینک جدید وارد شد، state ریست بشه ---
+if url != st.session_state.last_url:
+    st.session_state.yt = None
+    st.session_state.streams = None
+    st.session_state.selected_itag = None
+    st.session_state.last_url = url
+
+# --- دکمه دریافت اطلاعات ---
+if st.button("دریافت اطلاعات") and url:
     try:
         yt = YouTube(url)
+        st.session_state.yt = yt
+        st.success(f"🎬 عنوان ویدیو: {yt.title}")
 
-        # فقط وقتی کاربر روی دکمه کلیک کرد
-        if st.button("Show Available Qualities"):
-            streams = yt.streams.filter(file_extension="mp4")
-
-            if not streams:
-                st.warning("No downloadable streams found.")
-            else:
-                st.session_state["streams"] = streams  # ذخیره برای بعداً
-
-        # اگر استریم‌ها در حافظه هستند، نمایش انتخاب کیفیت
-        if "streams" in st.session_state:
-            streams = st.session_state["streams"]
-            options = [
-                f"{stream.resolution} ({round(stream.filesize / 1024 / 1024, 2)} MB)"
-                for stream in streams
-            ]
-            selected_quality = st.selectbox("Select video quality:", options)
-
-            if st.button("Download"):
-                selected_res = selected_quality.split()[0]
-                downloader = YouTubeDownloader(url, selected_res)
-
-                with st.spinner("Downloading... Please wait ⏳"):
-                    downloader.download()
-
-                st.success("✅ Download complete!")
-
+        # فقط استریم‌های MP4 و progressive (ویدیو + صدا)
+        streams = yt.streams.filter(file_extension="mp4")
+        if streams:
+            st.session_state.streams = streams
+        else:
+            st.warning("⚠️ No downloadable streams found.")
     except Exception as e:
-        st.error(f"❌ Error: {e}")
+        st.error(f"❌ خطا در خواندن ویدیو: {e}")
+
+# --- نمایش کیفیت‌ها در صورت وجود ---
+if st.session_state.streams:
+    # دیکشنری از توضیحات برای نمایش به کاربر -> itag برای شناسایی دقیق
+    options = {
+        f"{s.resolution} | {s.fps}fps | {s.mime_type} | {round(s.filesize / 1024 / 1024, 2)} MB": s.itag
+        for s in st.session_state.streams
+    }
+
+    # لیست متن‌ها برای انتخاب در UI
+    option_labels = list(options.keys())
+
+    selected_label = st.selectbox(
+        "Select video quality:",
+        option_labels,
+        index=option_labels.index(
+            next(
+                (k for k, v in options.items() if v == st.session_state.selected_itag),
+                option_labels[0],
+            )
+        )
+        if st.session_state.selected_itag
+        else 0,
+    )
+
+    # ذخیره itag انتخاب‌شده
+    st.session_state.selected_itag = options[selected_label]
+    st.success(f"✅ کیفیت انتخاب‌شده: {selected_label}")
+
+    # --- دکمه دانلود ---
+    if st.button("⬇️ دانلود ویدیو"):
+        try:
+            stream = st.session_state.yt.streams.get_by_itag(
+                st.session_state.selected_itag
+            )
+            st.info("📥 در حال دانلود ویدیو، لطفاً صبر کنید...")
+            file_path = stream.download()
+            st.success(f"✅ دانلود انجام شد!\n📂 مسیر فایل: `{file_path}`")
+        except Exception as e:
+            st.error(f"⚠️ خطا در دانلود ویدیو: {e}")
