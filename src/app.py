@@ -7,7 +7,7 @@ st.write("Paste a YouTube URL to view available video qualities.")
 
 url = st.text_input(
     "Enter YouTube URL:",
-    value="https://youtu.be/7ZqWmAvLZEg?si=7j0bdWHk92HClDol"
+    value="https://youtu.be/7ZqWmAvLZEg?si=7j0bdWHk92HClDol" 
 )
 
 # اگر کاربر URL وارد کرده
