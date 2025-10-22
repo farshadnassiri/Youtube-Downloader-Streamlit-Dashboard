@@ -26,6 +26,10 @@ if st.button("دریافت اطلاعات") and url:
             st.warning("⚠️ No downloadable streams found.")
     except Exception as e:
         st.error(f"❌ خطا در خواندن ویدیو: {e}")
+if url =="":
+       st.session_state.yt = None
+       st.session_state.streams = None
+
 
 # --- نمایش کیفیت‌ها در صورت وجود ---
 if st.session_state.streams:
